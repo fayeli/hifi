@@ -80,25 +80,9 @@
             modelID = Entities.addEntity(properties);
             print("Teleport Model added, entityItemID: " + modelID);
 
-            // Teleport Cube
-            // var vecBehind = Quat.getFront(MyAvatar.orientation);
-            // vecBehind = Vec3.multiply(vecBehind,2);
-            // var position = Vec3.sum(MyAvatar.position, vecBehind);
-            // var properties = {
-            //     type: "Box",
-            //     position: position,
-            //     dimensions: {
-            //         x: 2,
-            //         y: 2,
-            //         z: 2.5
-            // },
-            // ignoreForCollisions: true,
-            // script: "https://s3-us-west-1.amazonaws.com/hifi-content/faye/rugEntityScript.js"
-            // };
-
             // Teleport Sphere
-            var position = MyAvatar.position;
-            var properties = {
+            position = MyAvatar.position;
+            properties = {
                 name: "Invisible Teleport Sphere",
                 type: "Sphere",
                 position: position,
@@ -168,7 +152,7 @@
             }
 
             // after teleporting, the leader position stablelizes (d = 0) and we know leader reached destination
-            if (teleportCounter > 0 && d === 0){
+            if (teleportCounter > 0 && d === 0) {
                 teleportCounter = teleportCounter + 1;
                 print('Teleporting, counter = ' + teleportCounter);
                 if (teleportCounter >= TELEPORT_THRESHOLD){
@@ -176,16 +160,15 @@
                     print('Teleported');
                 }
             }
-            if (teleported){
+            if (teleported) {
                 // send leader's before and after teleport position to other avatars on rug
-                //var newLocation = JSON.stringify(MyAvatar.position);
                 afterPosition = currLocation;
                 var object = {
                     before: beforePosition,
                     after: afterPosition
                 };
                 var message = JSON.stringify(object);
-                var channel = 'Group-Teleport-'+ sphereID;
+                var channel = 'Group-Teleport-' + sphereID;
                 Messages.sendMessage(channel, message);
                 print('Leader sending message: ' + message +' To Channel: ' + channel);
                 _this.exitGroupTeleportMode();
@@ -202,7 +185,7 @@
 
     var mappingName, teleportMapping;
 
-    function registerMappings(){
+    function registerMappings() {
         mappingName = 'Hifi-Group-Teleporter-Dev-' + Math.random();
         teleportMapping = Controller.newMapping(mappingName);
 
