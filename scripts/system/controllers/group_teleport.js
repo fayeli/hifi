@@ -190,17 +190,17 @@
         teleportMapping = Controller.newMapping(mappingName);
 
         //Maapping to keyboard space bar for testing when no vive is available
-        teleportMapping.from(Controller.Hardware.Keyboard.Space).to(function(value){
-            if(value===0) {
-                return;
-            }
-            print('Group Teleport Debug: Clicked space bar');
-            if (inGroupTeleportMode){
-                teleporter.exitGroupTeleportMode();
-            } else {
-                teleporter.enterGroupTeleportMode();
-            }
-        });
+        // teleportMapping.from(Controller.Hardware.Keyboard.Space).to(function(value) {
+        //     if (value===0) {
+        //         return;
+        //     }
+        //     print('Group Teleport Debug: Clicked space bar');
+        //     if (inGroupTeleportMode) {
+        //         teleporter.exitGroupTeleportMode();
+        //     } else {
+        //         teleporter.enterGroupTeleportMode();
+        //     }
+        // });
 
         teleportMapping.from(Controller.Standard.RT).peek().to(rightTrigger.buttonPress);
         teleportMapping.from(Controller.Standard.LT).peek().to(leftTrigger.buttonPress);
@@ -208,7 +208,7 @@
         teleportMapping.from(Controller.Standard.LeftPrimaryThumb).peek().to(leftPad.buttonPress);
         teleportMapping.from(rightPad.down).when(leftPad.down)
             .to(function(value) {
-                if(value===0){
+                if (value===0) {
                     return;
                 }
                 if (rightTrigger.down()) {
@@ -218,7 +218,7 @@
                     return;
                 }
                 print('Group Teleport Debug: Clicked both thumbpad');
-                if (inGroupTeleportMode){
+                if (inGroupTeleportMode) {
                     teleporter.exitGroupTeleportMode();
                 } else {
                     teleporter.enterGroupTeleportMode();
@@ -237,7 +237,7 @@
     function cleanup() {
         print('group teleport script cleanup');
         Controller.disableMapping(mappingName);
-        if(teleporter.updateConnected){
+        if (teleporter.updateConnected) {
             Script.update.disconnect(teleporter.update);
             teleporter.updateConnected = false;
         }
