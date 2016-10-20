@@ -22,6 +22,8 @@ Grid = function(opts) {
 
     var snapToGrid = false;
 
+    var snapBlockChannel;
+
     var gridOverlay = Overlays.addOverlay("grid", {
         rotation: Quat.fromPitchYawRollDegrees(90, 0, 0),
         dimensions: { x: scale, y: scale, z: scale },
@@ -205,8 +207,30 @@ Grid = function(opts) {
         }
     }
 
+    function handleMessages(channel, message, sender) {
+        if (channel === snapBlockChannel && sender === MyAvatar.sessionUUID) {
+            print("grid recieved message: " + message);
+            that.setVisible(true);
+            print("grid set visible");
+            that.setSnapToGrid(true);
+            print("grid set snap to grid");
+            that.setMajorIncrement(1);
+            that.setMinorIncrement(0.05);
+            print("grid set major size: 1, minor size: 0.05");
+        }
+    }
+
+    function listenForSnapBlock() {
+        snapBlockChannel = "Snap-Block-Channel";
+        print('grid subsribe to ' + snapBlockChannel);
+        Messages.subscribe(snapBlockChannel);
+        Messages.messageReceived.connect(handleMessages);
+    }
+
     function cleanup() {
         Overlays.deleteOverlay(gridOverlay);
+        Messages.unsubscribe(snapBlockChannel);
+        Messages.messageReceived.disconnect(handleMessages);
     }
 
     that.addListener = function(callback) {
@@ -215,6 +239,7 @@ Grid = function(opts) {
 
     Script.scriptEnding.connect(cleanup);
     updateGrid();
+    listenForSnapBlock();
 
     that.onUpdate = null;
 
