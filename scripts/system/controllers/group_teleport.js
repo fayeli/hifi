@@ -21,7 +21,7 @@
     function handleMenuEvent(menuItem) {
         if (menuItem === "Customize Group Teleport") {
             print("Customize Group Teleport Clicked");
-            var prompt = Window.prompt("Group Teleport Model URL", "https://s3-us-west-1.amazonaws.com/hifi-content/faye/rug.fbx");
+            var prompt = Window.prompt("Group Teleport Model URL", MODEL_URL);
             if (prompt) {
                 Window.alert("Your Group Teleport Model is changed to: " + prompt);
                 MODEL_URL = prompt;
