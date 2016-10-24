@@ -7,7 +7,14 @@
 (function(){ // BEGIN LOCAL_SCOPE
     print('running group teleport script');
 
-    var MODEL_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-default-rug.fbx";
+    var MODEL_URL;
+    // loads default model or saved model from user settings
+    if (Settings.getValue("Group-Teleport-Model") === "") {
+        MODEL_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-default-rug.fbx";
+        Settings.setValue("Group-Teleport-Model", MODEL_URL);
+    } else {
+        MODEL_URL = Settings.getValue("Group-Teleport-Model");
+    }
     var RING_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-ring.fbx";
     var inGroupTeleportMode = false;
 
@@ -26,6 +33,8 @@
             if (prompt) {
                 Window.alert("Your Group Teleport Model is changed to: " + prompt);
                 MODEL_URL = prompt;
+                // saves model to user settings
+                Settings.setValue("Group-Teleport-Model", MODEL_URL);
             }
         }
     }
