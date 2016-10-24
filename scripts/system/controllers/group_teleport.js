@@ -8,6 +8,7 @@
     print('running group teleport script');
 
     var MODEL_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-default-rug.fbx";
+    var RING_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-ring.fbx";
     var inGroupTeleportMode = false;
 
     function setupMenu() {
@@ -61,7 +62,7 @@
         this.updateConnected = false;
         var sphereID;
         var modelID;
-
+        var ringID;
         this.createRug = function() {
             // Rug Model
             var position = MyAvatar.position;
@@ -80,11 +81,21 @@
             modelID = Entities.addEntity(properties);
             print("Teleport Model added, entityItemID: " + modelID);
 
+            // Teleport Blue Ring Visual
+            position.y = position.y + 0.025;
+            properties = {
+                type: "Model",
+                name: "Group Teleport Blue Ring Visual",
+                position: position,
+                modelURL: RING_URL
+            };
+            ringID = Entities.addEntity(properties);
+
             // Teleport Sphere
             position = MyAvatar.position;
             properties = {
-                name: "Invisible Teleport Sphere",
                 type: "Sphere",
+                name: "Invisible Teleport Sphere",
                 position: position,
                 dimensions: {
                     x: 2,
@@ -118,6 +129,7 @@
             this.updateConnected = false;
             Entities.deleteEntity(sphereID);
             Entities.deleteEntity(modelID);
+            Entities.deleteEntity(ringID);
             teleported = false;
             teleportCounter = 0;
             beforePosition = null;
