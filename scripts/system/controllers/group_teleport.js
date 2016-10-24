@@ -7,7 +7,7 @@
 (function(){ // BEGIN LOCAL_SCOPE
     print('running group teleport script');
 
-    var MODEL_URL = "https://s3-us-west-1.amazonaws.com/hifi-content/faye/rug.fbx";
+    var MODEL_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-default-rug.fbx";
     var inGroupTeleportMode = false;
 
     function setupMenu() {
@@ -65,14 +65,14 @@
         this.createRug = function() {
             // Rug Model
             var position = MyAvatar.position;
-            position.y = MyAvatar.getJointPosition("RightToeBase").y;
+            position.y = MyAvatar.getJointPosition("RightToeBase").y + 0.025;
             var properties = {
                 type: "Model",
                 name: "Group Teleportation Rug",
                 position: position,
                 dimensions: {
                     x: 2.0,
-                    y: 0.0067,
+                    y: 0.05,
                     z: 2.0
                 },
                 modelURL: MODEL_URL
@@ -190,17 +190,17 @@
         teleportMapping = Controller.newMapping(mappingName);
 
         //Maapping to keyboard space bar for testing when no vive is available
-        // teleportMapping.from(Controller.Hardware.Keyboard.Space).to(function(value) {
-        //     if (value===0) {
-        //         return;
-        //     }
-        //     print('Group Teleport Debug: Clicked space bar');
-        //     if (inGroupTeleportMode) {
-        //         teleporter.exitGroupTeleportMode();
-        //     } else {
-        //         teleporter.enterGroupTeleportMode();
-        //     }
-        // });
+        teleportMapping.from(Controller.Hardware.Keyboard.Space).to(function(value) {
+            if (value===0) {
+                return;
+            }
+            print('Group Teleport Debug: Clicked space bar');
+            if (inGroupTeleportMode) {
+                teleporter.exitGroupTeleportMode();
+            } else {
+                teleporter.enterGroupTeleportMode();
+            }
+        });
 
         teleportMapping.from(Controller.Standard.RT).peek().to(rightTrigger.buttonPress);
         teleportMapping.from(Controller.Standard.LT).peek().to(leftTrigger.buttonPress);
