@@ -85,7 +85,8 @@
                     y: 0.05,
                     z: 2.0
                 },
-                modelURL: MODEL_URL
+                modelURL: MODEL_URL,
+                shapeType: "simple-hull"
             };
             modelID = Entities.addEntity(properties);
             print("Teleport Model added, entityItemID: " + modelID);
