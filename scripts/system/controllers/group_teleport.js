@@ -73,33 +73,39 @@
         var modelID;
         var ringID;
         this.createRug = function() {
-            // Rug Model
+
+            // Teleport Blue Ring Visual
             var position = MyAvatar.position;
+            properties = {
+                type: "Model",
+                name: "Group Teleport Blue Ring Visual",
+                dimensions: {
+                    x: 5.0,
+                    y: 0.01,
+                    z: 5.0
+                },
+                position: position,
+                modelURL: RING_URL
+            };
+            ringID = Entities.addEntity(properties);
+
+
+            // Rug Model
             position.y = MyAvatar.getJointPosition("RightToeBase").y + 0.025;
             var properties = {
                 type: "Model",
                 name: "Group Teleportation Rug",
                 position: position,
                 dimensions: {
-                    x: 2.0,
+                    x: 5.0,
                     y: 0.05,
-                    z: 2.0
+                    z: 5.0
                 },
                 modelURL: MODEL_URL,
                 shapeType: "simple-hull"
             };
             modelID = Entities.addEntity(properties);
             print("Teleport Model added, entityItemID: " + modelID);
-
-            // Teleport Blue Ring Visual
-            position.y = position.y + 0.025;
-            properties = {
-                type: "Model",
-                name: "Group Teleport Blue Ring Visual",
-                position: position,
-                modelURL: RING_URL
-            };
-            ringID = Entities.addEntity(properties);
 
             // Teleport Sphere
             position = MyAvatar.position;
@@ -108,9 +114,9 @@
                 name: "Invisible Teleport Sphere",
                 position: position,
                 dimensions: {
-                    x: 2,
+                    x: 5.0,
                     y: 0.25,
-                    z: 2
+                    z: 5.0
                 },
                 ignoreForCollisions: true,
                 script: "https://s3-us-west-1.amazonaws.com/hifi-content/faye/rugEntityScript.js",
