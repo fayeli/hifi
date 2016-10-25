@@ -29,9 +29,9 @@
     function handleMenuEvent(menuItem) {
         if (menuItem === "Customize Group Teleport") {
             print("Customize Group Teleport Clicked");
-            var prompt = Window.prompt("Group Teleport Model URL", MODEL_URL);
+            var prompt = Window.prompt("Customize the look of Group Teleport.\nYour 3D model will be used in place of the default rug.\n\nPlease Note:\n    - Your model must be a FBX model in 5 x 0.05 x 5.\n    - If not, it will be scaled to fit.\n\nEnter Model URL:", MODEL_URL);
             if (prompt) {
-                Window.alert("Your Group Teleport Model is changed to: " + prompt);
+                Window.alert("Group Teleport model changed to: \n" + prompt);
                 MODEL_URL = prompt;
                 // saves model to user settings
                 Settings.setValue("Group-Teleport-Model", MODEL_URL);
