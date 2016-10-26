@@ -81,7 +81,7 @@
                 name: "Group Teleport Blue Ring Visual",
                 dimensions: {
                     x: 5.0,
-                    y: 0.01,
+                    y: 0.001,
                     z: 5.0
                 },
                 position: position,
