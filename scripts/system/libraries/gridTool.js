@@ -210,13 +210,14 @@ Grid = function(opts) {
     function handleMessages(channel, message, sender) {
         if (channel === snapBlockChannel && sender === MyAvatar.sessionUUID) {
             print("grid recieved message: " + message);
+            var object = JSON.parse(message);
             that.setVisible(true);
             print("grid set visible");
             that.setSnapToGrid(true);
             print("grid set snap to grid");
-            that.setMajorIncrement(1);
-            that.setMinorIncrement(0.05);
-            print("grid set major size: 1, minor size: 0.05");
+            that.setMajorIncrement(object.majorGrid);
+            that.setMinorIncrement(object.minorGrid);
+            print("grid set major size: " + object.majorGrid + " minor size: " + object.minorGrid);
         }
     }
 
