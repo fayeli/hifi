@@ -215,15 +215,17 @@ Grid = function(opts) {
             print("grid set visible");
             that.setSnapToGrid(true);
             print("grid set snap to grid");
-            that.setMajorIncrement(object.majorGrid);
-            that.setMinorIncrement(object.minorGrid);
-            print("grid set major size: " + object.majorGrid + " minor size: " + object.minorGrid);
+            if (object.hasOwnProperty('majorGrid') && object.hasOwnProperty('minorGrid')) {
+                that.setMajorIncrement(object.majorGrid);
+                that.setMinorIncrement(object.minorGrid);
+                print("grid set major size: " + object.majorGrid + " minor size: " + object.minorGrid); 
+            }
         }
     }
 
     function listenForSnapBlock() {
         snapBlockChannel = "Snap-Block-Channel";
-        print('grid subsribe to ' + snapBlockChannel);
+        print('grid subscribe to ' + snapBlockChannel);
         Messages.subscribe(snapBlockChannel);
         Messages.messageReceived.connect(handleMessages);
     }
