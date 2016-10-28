@@ -10,12 +10,12 @@
     var MODEL_URL;
     // loads default model or saved model from user settings
     if (Settings.getValue("Group-Teleport-Model") === "") {
-        MODEL_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-default-rug.fbx";
+        MODEL_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/GT-Rug-default.fbx";
         Settings.setValue("Group-Teleport-Model", MODEL_URL);
     } else {
         MODEL_URL = Settings.getValue("Group-Teleport-Model");
     }
-    var RING_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/group-teleport-ring.fbx";
+    var RING_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/GT--Ring.fbx";
     var inGroupTeleportMode = false;
 
     function setupMenu() {
