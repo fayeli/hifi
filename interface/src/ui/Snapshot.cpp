@@ -43,9 +43,7 @@ const QString SNAPSHOTS_DIRECTORY = "Snapshots";
 
 const QString URL = "highfidelity_url";
 
-Setting::Handle<QString> Snapshot::snapshotsLocation("snapshotsLocation",
-    QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
-Setting::Handle<bool> Snapshot::hasSetSnapshotsLocation("hasSetSnapshotsLocation", false);
+Setting::Handle<QString> Snapshot::snapshotsLocation("snapshotsLocation");
 
 SnapshotMetaData* Snapshot::parseSnapshotData(QString snapshotPath) {
 
@@ -91,7 +89,7 @@ QTemporaryFile* Snapshot::saveTempSnapshot(QImage image) {
 QFile* Snapshot::savedFileForSnapshot(QImage & shot, bool isTemporary) {
 
     // adding URL to snapshot
-    QUrl currentURL = DependencyManager::get<AddressManager>()->currentAddress();
+    QUrl currentURL = DependencyManager::get<AddressManager>()->currentShareableAddress();
     shot.setText(URL, currentURL.toString());
 
     QString username = DependencyManager::get<AccountManager>()->getAccountInfo().getUsername();
@@ -105,48 +103,53 @@ QFile* Snapshot::savedFileForSnapshot(QImage & shot, bool isTemporary) {
     const int IMAGE_QUALITY = 100;
 
     if (!isTemporary) {
-        QString snapshotFullPath;
-        if (!hasSetSnapshotsLocation.get()) {
-            snapshotFullPath = QFileDialog::getExistingDirectory(nullptr, "Choose Snapshots Directory", snapshotsLocation.get());
-            hasSetSnapshotsLocation.set(true);
+        QString snapshotFullPath = snapshotsLocation.get();
+
+        if (snapshotFullPath.isEmpty()) {
+            snapshotFullPath = OffscreenUi::getExistingDirectory(nullptr, "Choose Snapshots Directory", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
             snapshotsLocation.set(snapshotFullPath);
-        } else {
-            snapshotFullPath = snapshotsLocation.get();
         }
 
-        if (!snapshotFullPath.endsWith(QDir::separator())) {
-            snapshotFullPath.append(QDir::separator());
+        if (!snapshotFullPath.isEmpty()) { // not cancelled
+
+            if (!snapshotFullPath.endsWith(QDir::separator())) {
+                snapshotFullPath.append(QDir::separator());
+            }
+
+            snapshotFullPath.append(filename);
+
+            QFile* imageFile = new QFile(snapshotFullPath);
+            imageFile->open(QIODevice::WriteOnly);
+
+            shot.save(imageFile, 0, IMAGE_QUALITY);
+            imageFile->close();
+
+            return imageFile;
         }
 
-        snapshotFullPath.append(filename);
-
-        QFile* imageFile = new QFile(snapshotFullPath);
-        imageFile->open(QIODevice::WriteOnly);
-
-        shot.save(imageFile, 0, IMAGE_QUALITY);
-        imageFile->close();
-
-        return imageFile;
-
-    } else {
-        QTemporaryFile* imageTempFile = new QTemporaryFile(QDir::tempPath() + "/XXXXXX-" + filename);
-
-        if (!imageTempFile->open()) {
-            qDebug() << "Unable to open QTemporaryFile for temp snapshot. Will not save.";
-            return NULL;
-        }
-
-        shot.save(imageTempFile, 0, IMAGE_QUALITY);
-        imageTempFile->close();
-
-        return imageTempFile;
     }
+    // Either we were asked for a tempororary, or the user didn't set a directory.
+    QTemporaryFile* imageTempFile = new QTemporaryFile(QDir::tempPath() + "/XXXXXX-" + filename);
+
+    if (!imageTempFile->open()) {
+        qDebug() << "Unable to open QTemporaryFile for temp snapshot. Will not save.";
+        return NULL;
+    }
+    imageTempFile->setAutoRemove(isTemporary);
+
+    shot.save(imageTempFile, 0, IMAGE_QUALITY);
+    imageTempFile->close();
+
+    return imageTempFile;
 }
 
 void Snapshot::uploadSnapshot(const QString& filename) {
 
     const QString SNAPSHOT_UPLOAD_URL = "/api/v1/snapshots";
-    static SnapshotUploader uploader;
+    // Alternatively to parseSnapshotData, we could pass the inWorldLocation through the call chain. This way is less disruptive to existing code.
+    SnapshotMetaData* snapshotData = Snapshot::parseSnapshotData(filename);
+    SnapshotUploader* uploader = new SnapshotUploader(snapshotData->getURL(), filename);
+    delete snapshotData;
     
     QFile* file = new QFile(filename);
     Q_ASSERT(file->exists());
@@ -163,7 +166,7 @@ void Snapshot::uploadSnapshot(const QString& filename) {
     multiPart->append(imagePart);
     
     auto accountManager = DependencyManager::get<AccountManager>();
-    JSONCallbackParameters callbackParams(&uploader, "uploadSuccess", &uploader, "uploadFailure");
+    JSONCallbackParameters callbackParams(uploader, "uploadSuccess", uploader, "uploadFailure");
 
     accountManager->sendRequest(SNAPSHOT_UPLOAD_URL,
                                 AccountManagerAuth::Required,

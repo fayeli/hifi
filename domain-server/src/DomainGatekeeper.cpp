@@ -109,7 +109,14 @@ void DomainGatekeeper::processConnectRequestPacket(QSharedPointer<ReceivedMessag
         // set the sending sock addr and node interest set on this node
         DomainServerNodeData* nodeData = reinterpret_cast<DomainServerNodeData*>(node->getLinkedData());
         nodeData->setSendingSockAddr(message->getSenderSockAddr());
-        nodeData->setNodeInterestSet(nodeConnection.interestList.toSet());
+
+        // guard against patched agents asking to hear about other agents
+        auto safeInterestSet = nodeConnection.interestList.toSet();
+        if (nodeConnection.nodeType == NodeType::Agent) {
+            safeInterestSet.remove(NodeType::Agent);
+        }
+
+        nodeData->setNodeInterestSet(safeInterestSet);
         nodeData->setPlaceName(nodeConnection.placeName);
 
         // signal that we just connected a node so the DomainServer can get it a list
@@ -237,6 +244,7 @@ void DomainGatekeeper::updateNodePermissions() {
             userPerms.permissions |= NodePermissions::Permission::canAdjustLocks;
             userPerms.permissions |= NodePermissions::Permission::canRezPermanentEntities;
             userPerms.permissions |= NodePermissions::Permission::canRezTemporaryEntities;
+            userPerms.permissions |= NodePermissions::Permission::canWriteToAssetServer;
         } else {
             // this node is an agent
             const QHostAddress& addr = node->getLocalSocket().getAddress();
@@ -312,6 +320,7 @@ SharedNodePointer DomainGatekeeper::processAssignmentConnectRequest(const NodeCo
     userPerms.permissions |= NodePermissions::Permission::canAdjustLocks;
     userPerms.permissions |= NodePermissions::Permission::canRezPermanentEntities;
     userPerms.permissions |= NodePermissions::Permission::canRezTemporaryEntities;
+    userPerms.permissions |= NodePermissions::Permission::canWriteToAssetServer;
     newNode->setPermissions(userPerms);
     return newNode;
 }
