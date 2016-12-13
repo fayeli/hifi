@@ -47,7 +47,6 @@ WebTablet = function (url, width, dpi, location, clientOnly) {
     var HEIGHT = WIDTH * ASPECT;
     var DEPTH = 0.025;
     var DPI = dpi || DEFAULT_DPI;
-    var _this = this;
 
     var tabletProperties = {
         name: "WebTablet Tablet",
