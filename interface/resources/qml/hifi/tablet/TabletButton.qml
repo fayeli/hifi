@@ -1,5 +1,5 @@
 import QtQuick 2.0
-
+import "../../styles-uit/"
 Rectangle {
     id: tabletButton
     width: 132

@@ -1,7 +1,9 @@
 import QtQuick 2.0
+import "../../styles-uit/"
 
 Item {
     id: tablet
+
     width: 480
     height: 720
 
@@ -122,6 +124,7 @@ Item {
             GradientStop {
                 position: 0
                 color: "#787878"
+
             }
 
             GradientStop {
