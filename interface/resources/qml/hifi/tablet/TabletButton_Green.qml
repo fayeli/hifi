@@ -4,7 +4,7 @@ Rectangle {
     id: tabletButton
     width: 132
     height: 132
-    color: "#1d94c3"
+    color: "#1fc6a6"
 
     Image {
         id: icon
