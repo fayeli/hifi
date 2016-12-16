@@ -3,19 +3,18 @@ import QtGraphicalEffects 1.0
 
 Item {
     id: tabletButton
-    property string color: "#1080B8"
     property string text: "EDIT"
     property string icon: "icons/edit-icon.svg"
-    width: 132
-    height: 132
+    width: 129
+    height: 129
 
     signal clicked()
 
     Rectangle {
         id: buttonBg
-        color: tabletButton.color
-        border.width: 0
-        border.color: "#00000000"
+        color: "#2b2b2b"
+        opacity: 0.2
+        radius: 8
         anchors.right: parent.right
         anchors.rightMargin: 0
         anchors.left: parent.left
@@ -25,6 +24,25 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: 0
     }
+
+    Rectangle {
+        id: buttonOutline
+        color: "#00000000"
+        opacity: 0.2
+        radius: 8
+        z: 1
+        border.width: 2
+        border.color: "#ffffff"
+        anchors.right: parent.right
+        anchors.rightMargin: 0
+        anchors.left: parent.left
+        anchors.leftMargin: 0
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 0
+        anchors.top: parent.top
+        anchors.topMargin: 0
+    }
+
 
     Image {
         id: icon
@@ -49,18 +67,6 @@ Item {
         horizontalAlignment: Text.AlignHCenter
     }
 
-    DropShadow {
-        id: dropshadow
-        anchors.fill: parent
-        horizontalOffset: 0
-        verticalOffset: 3
-        color: "#aa000000"
-        radius: 20
-        z: -1
-        samples: 41
-        source: buttonBg
-    }
-
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
@@ -80,14 +86,9 @@ Item {
             name: "hover state"
 
             PropertyChanges {
-                target: buttonBg
-                border.width: 2
-                border.color: "#ffffff"
-            }
-            PropertyChanges {
-                target: dropshadow
-                verticalOffset: 0
-                color: "#ffffff"
+                target: buttonOutline
+                border.color: "#1fc6a6"
+                opacity: 1
             }
         }
     ]
