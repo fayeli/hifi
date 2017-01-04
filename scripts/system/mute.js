@@ -16,9 +16,9 @@
 var tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
 
 var button = tablet.addButton({
-    icon: "icons/tablet-icons/mic-a.svg",
+    icon: "icons/tablet-icons/mic-i.svg",
     text: "MUTE",
-    activeIcon: "icons/tablet-icons/mic-i.svg",
+    activeIcon: "icons/tablet-icons/mic-a.svg",
     activeText: "UNMUTE"
 });
 
