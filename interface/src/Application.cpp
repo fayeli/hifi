@@ -62,6 +62,7 @@
 #include <ErrorDialog.h>
 #include <FileScriptingInterface.h>
 #include <Finally.h>
+#include <FingerprintUtils.h>
 #include <FramebufferCache.h>
 #include <gpu/Batch.h>
 #include <gpu/Context.h>
@@ -167,8 +168,6 @@
 // On Windows PC, NVidia Optimus laptop, we want to enable NVIDIA GPU
 // FIXME seems to be broken.
 #if defined(Q_OS_WIN)
-#include <VersionHelpers.h>
-
 extern "C" {
  _declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 }
@@ -419,16 +418,6 @@ bool setupEssentials(int& argc, char** argv) {
 
     Setting::preInit();
 
-#if defined(Q_OS_WIN)
-    // Select appropriate audio DLL
-    QString audioDLLPath = QCoreApplication::applicationDirPath();
-    if (IsWindows8OrGreater()) {
-        audioDLLPath += "/audioWin8";
-    } else {
-        audioDLLPath += "/audioWin7";
-    }
-    QCoreApplication::addLibraryPath(audioDLLPath);
-#endif
 
     static const auto SUPPRESS_SETTINGS_RESET = "--suppress-settings-reset";
     bool suppressPrompt = cmdOptionExists(argc, const_cast<const char**>(argv), SUPPRESS_SETTINGS_RESET);
@@ -580,7 +569,10 @@ Application::Application(int& argc, char** argv, QElapsedTimer& startupTimer, bo
     _window->setWindowTitle("Interface");
 
     Model::setAbstractViewStateInterface(this); // The model class will sometimes need to know view state details from us
-
+    
+    // TODO: This is temporary, while developing
+    FingerprintUtils::getMachineFingerprint();
+    // End TODO
     auto nodeList = DependencyManager::get<NodeList>();
 
     // Set up a watchdog thread to intentionally crash the application on deadlocks
