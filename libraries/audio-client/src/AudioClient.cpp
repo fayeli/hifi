@@ -424,35 +424,25 @@ bool adjustedFormatForAudioDevice(const QAudioDeviceInfo& audioDevice,
     adjustedAudioFormat = desiredAudioFormat;
 
     //
-    // Attempt the device sample rate in decreasing order of preference.
+    // Attempt the device sample rate and channel count in decreasing order of preference.
     //
-    if (audioDevice.supportedSampleRates().contains(48000)) {
-        adjustedAudioFormat.setSampleRate(48000);
-    } else if (audioDevice.supportedSampleRates().contains(44100)) {
-        adjustedAudioFormat.setSampleRate(44100);
-    } else if (audioDevice.supportedSampleRates().contains(32000)) {
-        adjustedAudioFormat.setSampleRate(32000);
-    } else if (audioDevice.supportedSampleRates().contains(24000)) {
-        adjustedAudioFormat.setSampleRate(24000);
-    } else if (audioDevice.supportedSampleRates().contains(16000)) {
-        adjustedAudioFormat.setSampleRate(16000);
-    } else if (audioDevice.supportedSampleRates().contains(96000)) {
-        adjustedAudioFormat.setSampleRate(96000);
-    } else if (audioDevice.supportedSampleRates().contains(192000)) {
-        adjustedAudioFormat.setSampleRate(192000);
-    } else if (audioDevice.supportedSampleRates().contains(88200)) {
-        adjustedAudioFormat.setSampleRate(88200);
-    } else if (audioDevice.supportedSampleRates().contains(176400)) {
-        adjustedAudioFormat.setSampleRate(176400);
+    const int sampleRates[] = { 48000, 44100, 32000, 24000, 16000, 96000, 192000, 88200, 176400 };
+    const int inputChannels[] = { 1, 2, 4, 6, 8 };  // prefer mono
+    const int outputChannels[] = { 2, 4, 6, 8, 1 }; // prefer stereo, downmix as last resort
+
+    for (int channelCount : (desiredAudioFormat.channelCount() == 1 ? inputChannels : outputChannels)) {
+        for (int sampleRate : sampleRates) {
+
+            adjustedAudioFormat.setChannelCount(channelCount);
+            adjustedAudioFormat.setSampleRate(sampleRate);
+
+            if (audioDevice.isFormatSupported(adjustedAudioFormat)) {
+                return true;
+            }
+        }
     }
 
-    if (adjustedAudioFormat != desiredAudioFormat) {
-        // return the nearest in case it needs 2 channels
-        adjustedAudioFormat = audioDevice.nearestFormat(adjustedAudioFormat);
-        return true;
-    } else {
-        return false;
-    }
+    return false;   // a supported format could not be found
 }
 
 bool sampleChannelConversion(const int16_t* sourceSamples, int16_t* destinationSamples, unsigned int numSourceSamples,
@@ -1063,7 +1053,9 @@ void AudioClient::handleAudioInput() {
             encodedBuffer = decodedBuffer;
         }
 
-        emitAudioPacket(encodedBuffer.constData(), encodedBuffer.size(), _outgoingAvatarAudioSequenceNumber, audioTransform, packetType, _selectedCodecName);
+        emitAudioPacket(encodedBuffer.constData(), encodedBuffer.size(), _outgoingAvatarAudioSequenceNumber,
+            audioTransform, avatarBoundingBoxCorner, avatarBoundingBoxScale,
+            packetType, _selectedCodecName);
         _stats.sentPacket();
 
         int bytesInInputRingBuffer = _inputRingBuffer.samplesAvailable() * AudioConstants::SAMPLE_SIZE;
@@ -1085,7 +1077,9 @@ void AudioClient::handleRecordedAudioInput(const QByteArray& audio) {
     }
 
     // FIXME check a flag to see if we should echo audio?
-    emitAudioPacket(encodedBuffer.data(), encodedBuffer.size(), _outgoingAvatarAudioSequenceNumber, audioTransform, PacketType::MicrophoneAudioWithEcho, _selectedCodecName);
+    emitAudioPacket(encodedBuffer.data(), encodedBuffer.size(), _outgoingAvatarAudioSequenceNumber,
+                    audioTransform, avatarBoundingBoxCorner, avatarBoundingBoxScale,
+                    PacketType::MicrophoneAudioWithEcho, _selectedCodecName);
 }
 
 void AudioClient::mixLocalAudioInjectors(float* mixBuffer) {
@@ -1098,17 +1092,42 @@ void AudioClient::mixLocalAudioInjectors(float* mixBuffer) {
     for (AudioInjector* injector : getActiveLocalAudioInjectors()) {
         if (injector->getLocalBuffer()) {
 
-            qint64 samplesToRead = injector->isStereo() ? AudioConstants::NETWORK_FRAME_BYTES_STEREO : AudioConstants::NETWORK_FRAME_BYTES_PER_CHANNEL;
+            static const int HRTF_DATASET_INDEX = 1;
 
-            // get one frame from the injector (mono or stereo)
-            memset(_scratchBuffer, 0, sizeof(_scratchBuffer));
-            if (0 < injector->getLocalBuffer()->readData((char*)_scratchBuffer, samplesToRead)) {
+            int numChannels = injector->isAmbisonic() ? AudioConstants::AMBISONIC : (injector->isStereo() ? AudioConstants::STEREO : AudioConstants::MONO);
+            qint64 bytesToRead = numChannels * AudioConstants::NETWORK_FRAME_BYTES_PER_CHANNEL;
+
+            // get one frame from the injector
+            memset(_scratchBuffer, 0, bytesToRead);
+            if (0 < injector->getLocalBuffer()->readData((char*)_scratchBuffer, bytesToRead)) {
                 
-                if (injector->isStereo()) {
+                if (injector->isAmbisonic()) {
+
+                    // no distance attenuation
+                    float gain = injector->getVolume();
+
+                    //
+                    // Calculate the soundfield orientation relative to the listener.
+                    // Injector orientation can be used to align a recording to our world coordinates.
+                    //
+                    glm::quat relativeOrientation = injector->getOrientation() * glm::inverse(_orientationGetter());
+
+                    // convert from Y-up (OpenGL) to Z-up (Ambisonic) coordinate system
+                    float qw = relativeOrientation.w;
+                    float qx = -relativeOrientation.z;
+                    float qy = -relativeOrientation.x;
+                    float qz = relativeOrientation.y;
+
+                    // Ambisonic gets spatialized into mixBuffer
+                    injector->getLocalFOA().render(_scratchBuffer, mixBuffer, HRTF_DATASET_INDEX, 
+                                                   qw, qx, qy, qz, gain, AudioConstants::NETWORK_FRAME_SAMPLES_PER_CHANNEL);
+
+                } else if (injector->isStereo()) {
 
                     // stereo gets directly mixed into mixBuffer
+                    float gain = injector->getVolume();
                     for (int i = 0; i < AudioConstants::NETWORK_FRAME_SAMPLES_STEREO; i++) {
-                        mixBuffer[i] += (float)_scratchBuffer[i] * (1/32768.0f);
+                        mixBuffer[i] += (float)_scratchBuffer[i] * (1/32768.0f) * gain;
                     }
                     
                 } else {
@@ -1120,7 +1139,8 @@ void AudioClient::mixLocalAudioInjectors(float* mixBuffer) {
                     float azimuth = azimuthForSource(relativePosition);         
                 
                     // mono gets spatialized into mixBuffer
-                    injector->getLocalHRTF().render(_scratchBuffer, mixBuffer, 1, azimuth, distance, gain, AudioConstants::NETWORK_FRAME_SAMPLES_PER_CHANNEL);
+                    injector->getLocalHRTF().render(_scratchBuffer, mixBuffer, HRTF_DATASET_INDEX, 
+                                                    azimuth, distance, gain, AudioConstants::NETWORK_FRAME_SAMPLES_PER_CHANNEL);
                 }
             
             } else {
@@ -1225,8 +1245,7 @@ void AudioClient::setIsStereoInput(bool isStereoInput) {
     }
 }
 
-
-bool AudioClient::outputLocalInjector(bool isStereo, AudioInjector* injector) {
+bool AudioClient::outputLocalInjector(AudioInjector* injector) {
     Lock lock(_injectorsMutex);
     if (injector->getLocalBuffer() && _audioInput ) {
         // just add it to the vector of active local injectors, if 
@@ -1594,4 +1613,9 @@ void AudioClient::loadSettings() {
 void AudioClient::saveSettings() {
     dynamicJitterBufferEnabled.set(_receivedAudioStream.dynamicJitterBufferEnabled());
     staticJitterBufferFrames.set(_receivedAudioStream.getStaticJitterBufferFrames());
+}
+
+void AudioClient::setAvatarBoundingBoxParameters(glm::vec3 corner, glm::vec3 scale) {
+    avatarBoundingBoxCorner = corner;
+    avatarBoundingBoxScale = scale;
 }

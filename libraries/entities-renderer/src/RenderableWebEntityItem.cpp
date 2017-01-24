@@ -46,7 +46,7 @@ EntityItemPointer RenderableWebEntityItem::factory(const EntityItemID& entityID,
 
 RenderableWebEntityItem::RenderableWebEntityItem(const EntityItemID& entityItemID) :
     WebEntityItem(entityItemID) {
-    qDebug() << "Created web entity " << getID();
+    qCDebug(entities) << "Created web entity " << getID();
 
     _touchDevice.setCapabilities(QTouchDevice::Position);
     _touchDevice.setType(QTouchDevice::TouchScreen);
@@ -57,7 +57,7 @@ RenderableWebEntityItem::RenderableWebEntityItem(const EntityItemID& entityItemI
 
 RenderableWebEntityItem::~RenderableWebEntityItem() {
     destroyWebSurface();
-    qDebug() << "Destroyed web entity " << getID();
+    qCDebug(entities) << "Destroyed web entity " << getID();
     auto geometryCache = DependencyManager::get<GeometryCache>();
     if (geometryCache) {
         geometryCache->releaseID(_geometryId);
@@ -90,7 +90,7 @@ bool RenderableWebEntityItem::buildWebSurface(QSharedPointer<EntityTreeRenderer>
     }
 
     ++_currentWebCount;
-    qDebug() << "Building web surface: " << getID() << ", #" << _currentWebCount << ", url = " << _sourceUrl;
+    qCDebug(entities) << "Building web surface: " << getID() << ", #" << _currentWebCount << ", url = " << _sourceUrl;
 
     QSurface * currentSurface = currentContext->surface();
 
@@ -246,14 +246,16 @@ void RenderableWebEntityItem::render(RenderArgs* args) {
 }
 
 void RenderableWebEntityItem::setSourceUrl(const QString& value) {
-    if (_sourceUrl != value) {
-        qDebug() << "Setting web entity source URL to " << value;
-        _sourceUrl = value;
-        if (_webSurface) {
-            AbstractViewStateInterface::instance()->postLambdaEvent([this] {
-                _webSurface->getRootItem()->setProperty("url", _sourceUrl);
-            });
-        }
+    auto valueBeforeSuperclassSet = _sourceUrl;
+
+    WebEntityItem::setSourceUrl(value);
+
+    if (_sourceUrl != valueBeforeSuperclassSet && _webSurface) {
+        qCDebug(entities) << "Changing web entity source URL to " << _sourceUrl;
+
+        AbstractViewStateInterface::instance()->postLambdaEvent([this] {
+            _webSurface->getRootItem()->setProperty("url", _sourceUrl);
+        });
     }
 }
 
@@ -326,8 +328,6 @@ void RenderableWebEntityItem::handlePointerEvent(const PointerEvent& event) {
         touchEvent->setTouchPoints(touchPoints);
         touchEvent->setTouchPointStates(touchPointState);
 
-        _lastTouchEvent = *touchEvent;
-
         QCoreApplication::postEvent(_webSurface->getWindow(), touchEvent);
     }
 }
@@ -358,7 +358,7 @@ void RenderableWebEntityItem::destroyWebSurface() {
         _hoverLeaveConnection = QMetaObject::Connection();
         _webSurface.reset();
 
-        qDebug() << "Delete web surface: " << getID() << ", #" << _currentWebCount << ", url = " << _sourceUrl;
+        qCDebug(entities) << "Delete web surface: " << getID() << ", #" << _currentWebCount << ", url = " << _sourceUrl;
     }
 }
 

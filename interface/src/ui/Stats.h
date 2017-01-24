@@ -39,6 +39,11 @@ class Stats : public QQuickItem {
     // How often the display device reprojecting old frames
     STATS_PROPERTY(float, stutterrate, 0)
 
+    STATS_PROPERTY(int, appdropped, 0)
+    STATS_PROPERTY(int, longsubmits, 0)
+    STATS_PROPERTY(int, longrenders, 0)
+    STATS_PROPERTY(int, longframes, 0)
+
     STATS_PROPERTY(float, presentnewrate, 0)
     STATS_PROPERTY(float, presentdroprate, 0)
     STATS_PROPERTY(int, simrate, 0)
@@ -62,6 +67,7 @@ class Stats : public QQuickItem {
     STATS_PROPERTY(int, avatarMixerInPps, 0)
     STATS_PROPERTY(int, avatarMixerOutKbps, 0)
     STATS_PROPERTY(int, avatarMixerOutPps, 0)
+    STATS_PROPERTY(float, myAvatarSendRate, 0)
     STATS_PROPERTY(int, audioMixerKbps, 0)
     STATS_PROPERTY(int, audioMixerPps, 0)
     STATS_PROPERTY(int, downloads, 0)
@@ -134,6 +140,10 @@ public slots:
     void forceUpdateStats() { updateStats(true); }
 
 signals:
+    void longsubmitsChanged();
+    void longrendersChanged();
+    void longframesChanged();
+    void appdroppedChanged();
     void framerateChanged();
     void expandedChanged();
     void timingExpandedChanged();
@@ -164,6 +174,7 @@ signals:
     void avatarMixerInPpsChanged();
     void avatarMixerOutKbpsChanged();
     void avatarMixerOutPpsChanged();
+    void myAvatarSendRateChanged();
     void audioMixerKbpsChanged();
     void audioMixerPpsChanged();
     void downloadsChanged();

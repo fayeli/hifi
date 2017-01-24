@@ -80,6 +80,22 @@ Item {
                         text: "Avatar Simrate: " + root.avatarSimrate
                     }
                     StatText {
+                        text: "Missed Frame Count: " + root.appdropped;
+                        visible: root.appdropped > 0;
+                    }
+                    StatText {
+                        text: "Long Render Count: " + root.longrenders;
+                        visible: root.longrenders > 0;
+                    }
+                    StatText {
+                        text: "Long Submit Count: " + root.longsubmits;
+                        visible: root.longsubmits > 0;
+                    }
+                    StatText {
+                        text: "Long Frame Count: " + root.longframes;
+                        visible: root.longframes > 0;
+                    }
+                    StatText {
                         text: "Packets In/Out: " + root.packetInCount + "/" + root.packetOutCount
                     }
                     StatText {
@@ -154,7 +170,8 @@ Item {
                     StatText {
                         visible: root.expanded;
                         text: "Avatar Mixer Out: " + root.avatarMixerOutKbps + " kbps, " +
-                            root.avatarMixerOutPps + "pps";
+                            root.avatarMixerOutPps + "pps, " +
+                            root.myAvatarSendRate.toFixed(2) + "hz";
                     }
                     StatText {
                         visible: root.expanded;

@@ -93,7 +93,7 @@ EntityPropertyFlags WebEntityItem::getEntityProperties(EncodeBitstreamParams& pa
 }
 
 void WebEntityItem::appendSubclassData(OctreePacketData* packetData, EncodeBitstreamParams& params,
-                                    EntityTreeElementExtraEncodeData* modelTreeElementExtraEncodeData,
+                                    EntityTreeElementExtraEncodeDataPointer modelTreeElementExtraEncodeData,
                                     EntityPropertyFlags& requestedProperties,
                                     EntityPropertyFlags& propertyFlags,
                                     EntityPropertyFlags& propertiesDidntFit,
@@ -125,7 +125,13 @@ bool WebEntityItem::findDetailedRayIntersection(const glm::vec3& origin, const g
 
 void WebEntityItem::setSourceUrl(const QString& value) {
     if (_sourceUrl != value) {
-        _sourceUrl = value;
+        auto newURL = QUrl::fromUserInput(value);
+
+        if (newURL.isValid()) {
+            _sourceUrl = newURL.toDisplayString();
+        } else {
+            qCDebug(entities) << "Clearing web entity source URL since" << value << "cannot be parsed to a valid URL.";
+        }
     }
 }
 

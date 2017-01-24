@@ -57,7 +57,6 @@
 
 using namespace std;
 
-const glm::vec3 DEFAULT_UP_DIRECTION(0.0f, 1.0f, 0.0f);
 const float DEFAULT_REAL_WORLD_FIELD_OF_VIEW_DEGREES = 30.0f;
 
 const float MAX_WALKING_SPEED = 2.6f; // human walking speed
@@ -117,11 +116,11 @@ MyAvatar::MyAvatar(RigPointer rig) :
     _hmdAtRestDetector(glm::vec3(0), glm::quat())
 {
     using namespace recording;
+    _skeletonModel->flagAsCauterized();
 
     for (int i = 0; i < MAX_DRIVE_KEYS; i++) {
         _driveKeys[i] = 0.0f;
     }
-
 
     // Necessary to select the correct slot
     using SlotType = void(MyAvatar::*)(const glm::vec3&, bool, const glm::quat&, bool);
@@ -227,19 +226,23 @@ void MyAvatar::simulateAttachments(float deltaTime) {
     // don't update attachments here, do it in harvestResultsFromPhysicsSimulation()
 }
 
-QByteArray MyAvatar::toByteArray(bool cullSmallChanges, bool sendAll) {
+QByteArray MyAvatar::toByteArray(AvatarDataDetail dataDetail) {
     CameraMode mode = qApp->getCamera()->getMode();
     _globalPosition = getPosition();
+    _globalBoundingBoxCorner.x = _characterController.getCapsuleRadius();
+    _globalBoundingBoxCorner.y = _characterController.getCapsuleHalfHeight();
+    _globalBoundingBoxCorner.z = _characterController.getCapsuleRadius();
+    _globalBoundingBoxCorner += _characterController.getCapsuleLocalOffset();
     if (mode == CAMERA_MODE_THIRD_PERSON || mode == CAMERA_MODE_INDEPENDENT) {
         // fake the avatar position that is sent up to the AvatarMixer
         glm::vec3 oldPosition = getPosition();
         setPosition(getSkeletonPosition());
-        QByteArray array = AvatarData::toByteArray(cullSmallChanges, sendAll);
+        QByteArray array = AvatarData::toByteArray(dataDetail);
         // copy the correct position back
         setPosition(oldPosition);
         return array;
     }
-    return AvatarData::toByteArray(cullSmallChanges, sendAll);
+    return AvatarData::toByteArray(dataDetail);
 }
 
 void MyAvatar::centerBody() {
@@ -360,9 +363,17 @@ void MyAvatar::update(float deltaTime) {
     updateFromTrackers(deltaTime);
 
     //  Get audio loudness data from audio input device
+    // Also get the AudioClient so we can update the avatar bounding box data
+    // on the AudioClient side.
     auto audio = DependencyManager::get<AudioClient>();
     head->setAudioLoudness(audio->getLastInputLoudness());
     head->setAudioAverageLoudness(audio->getAudioAverageInputLoudness());
+
+    glm::vec3 halfBoundingBoxDimensions(_characterController.getCapsuleRadius(), _characterController.getCapsuleHalfHeight(), _characterController.getCapsuleRadius());
+    halfBoundingBoxDimensions += _characterController.getCapsuleLocalOffset();
+    QMetaObject::invokeMethod(audio.data(), "setAvatarBoundingBoxParameters",
+        Q_ARG(glm::vec3, (getPosition() - halfBoundingBoxDimensions)),
+        Q_ARG(glm::vec3, (halfBoundingBoxDimensions*2.0f)));
 
     if (_avatarEntityDataLocallyEdited) {
         sendIdentityPacket();
@@ -1581,7 +1592,7 @@ void MyAvatar::preDisplaySide(RenderArgs* renderArgs) {
     // toggle using the cauterizedBones depending on where the camera is and the rendering pass type.
     const bool shouldDrawHead = shouldRenderHead(renderArgs);
     if (shouldDrawHead != _prevShouldDrawHead) {
-        _skeletonModel->setCauterizeBones(!shouldDrawHead);
+        _skeletonModel->setEnableCauterization(!shouldDrawHead);
     }
     _prevShouldDrawHead = shouldDrawHead;
 }
@@ -2080,10 +2091,10 @@ glm::mat4 MyAvatar::deriveBodyFromHMDSensor() const {
 
     glm::vec3 rigMiddleEyePos = DEFAULT_RIG_MIDDLE_EYE_POS;
     if (leftEyeIndex >= 0 && rightEyeIndex >= 0) {
-        rigMiddleEyePos = (_rig->getAbsoluteDefaultPose(leftEyeIndex).trans + _rig->getAbsoluteDefaultPose(rightEyeIndex).trans) / 2.0f;
+        rigMiddleEyePos = (_rig->getAbsoluteDefaultPose(leftEyeIndex).trans() + _rig->getAbsoluteDefaultPose(rightEyeIndex).trans()) / 2.0f;
     }
-    glm::vec3 rigNeckPos = neckIndex != -1 ? _rig->getAbsoluteDefaultPose(neckIndex).trans : DEFAULT_RIG_NECK_POS;
-    glm::vec3 rigHipsPos = hipsIndex != -1 ? _rig->getAbsoluteDefaultPose(hipsIndex).trans : DEFAULT_RIG_HIPS_POS;
+    glm::vec3 rigNeckPos = neckIndex != -1 ? _rig->getAbsoluteDefaultPose(neckIndex).trans() : DEFAULT_RIG_NECK_POS;
+    glm::vec3 rigHipsPos = hipsIndex != -1 ? _rig->getAbsoluteDefaultPose(hipsIndex).trans() : DEFAULT_RIG_HIPS_POS;
 
     glm::vec3 localEyes = (rigMiddleEyePos - rigHipsPos);
     glm::vec3 localNeck = (rigNeckPos - rigHipsPos);
@@ -2263,16 +2274,16 @@ void MyAvatar::FollowHelper::prePhysicsUpdate(MyAvatar& myAvatar, const glm::mat
 
     AnimPose followWorldPose(currentWorldMatrix);
     if (isActive(Rotation)) {
-        followWorldPose.rot = glmExtractRotation(desiredWorldMatrix);
+        followWorldPose.rot() = glmExtractRotation(desiredWorldMatrix);
     }
     if (isActive(Horizontal)) {
         glm::vec3 desiredTranslation = extractTranslation(desiredWorldMatrix);
-        followWorldPose.trans.x = desiredTranslation.x;
-        followWorldPose.trans.z = desiredTranslation.z;
+        followWorldPose.trans().x = desiredTranslation.x;
+        followWorldPose.trans().z = desiredTranslation.z;
     }
     if (isActive(Vertical)) {
         glm::vec3 desiredTranslation = extractTranslation(desiredWorldMatrix);
-        followWorldPose.trans.y = desiredTranslation.y;
+        followWorldPose.trans().y = desiredTranslation.y;
     }
 
     myAvatar.getCharacterController()->setFollowParameters(followWorldPose, getMaxTimeRemaining());
