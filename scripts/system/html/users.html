@@ -128,6 +128,7 @@
             </div>
         </div>
         <div class="main">
+            <div id="dev-div"></div>
             <ul class="tabs">
                 <li tab-id="tab-1" class="current">Everyone (0)</li>
                 <li tab-id="tab-2">Friends (0)</li>
@@ -145,6 +146,7 @@
             var METAVERSE_API_URL = "https://metaverse.highfidelity.com/api/v1/users?status=online";
             var FRIENDS_FILTER = "&filter=friends";
             var myUsername = null;
+            var myVisibility = null;
 
             function displayUsers(data, element) {
                 element.empty();
@@ -201,10 +203,11 @@
                     // Parse the string into an object
                     event = JSON.parse(event);
                 }
-                if (event.type === "sendUsername") {
+                if (event.type === "user-info") {
                     myUsername = event.data.username;
+                    myVisibility = event.data.visibility;
                     $("#dev-div").append("<p>myUsername is " + myUsername + "</p>");
-                    consoloe.log("myUsername is " + myUsername);
+                    $("#dev-div").append("<p>myVisibility is " + myVisibility + "</p>");
                 }
             }
 
