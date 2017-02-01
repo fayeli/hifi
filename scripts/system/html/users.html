@@ -114,6 +114,21 @@
                 background: linear-gradient(#1080b8, #1080b8);
             }
 
+            input[type=button].white {
+                color: #121212;
+                background-color: #afafaf;
+                background: linear-gradient(#fff 20%, #afafaf 100%);
+            }
+
+            input[type=button].white:hover {
+                background: linear-gradient(#fff, #fff);
+                border: none;
+            }
+
+            input[type=button].white:active {
+                background: linear-gradient(#afafaf, #afafaf);
+            }
+
             #friends-button {
                 margin: 0px 0px 15px 10px;
             }
@@ -128,7 +143,7 @@
             </div>
         </div>
         <div class="main">
-            <div id="dev-div"></div>
+            <input type="button" class="white" id="visibility-toggle" value="Online">
             <ul class="tabs">
                 <li tab-id="tab-1" class="current">Everyone (0)</li>
                 <li tab-id="tab-2">Friends (0)</li>
@@ -208,6 +223,7 @@
                     myVisibility = event.data.visibility;
                     $("#dev-div").append("<p>myUsername is " + myUsername + "</p>");
                     $("#dev-div").append("<p>myVisibility is " + myVisibility + "</p>");
+                    $("#visibility-toggle").prop("value", myVisibility);
                 }
             }
 
