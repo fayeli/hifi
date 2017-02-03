@@ -25,6 +25,8 @@
 #include "QVariantGLM.h"
 #include "SimulationOwner.h"
 #include "ZoneEntityItem.h"
+#include "WebEntityItem.h"
+#include <EntityScriptClient.h>
 
 
 EntityScriptingInterface::EntityScriptingInterface(bool bidOnSimulationOwnership) :
@@ -229,6 +231,7 @@ QUuid EntityScriptingInterface::addEntity(const EntityItemProperties& properties
                     // and make note of it now, so we can act on it right away.
                     propertiesWithSimID.setSimulationOwner(myNodeID, SCRIPT_POKE_SIMULATION_PRIORITY);
                     entity->setSimulationOwner(myNodeID, SCRIPT_POKE_SIMULATION_PRIORITY);
+                    entity->rememberHasSimulationOwnershipBid();
                 }
 
                 entity->setLastBroadcast(usecTimestampNow());
@@ -442,6 +445,7 @@ QUuid EntityScriptingInterface::editEntity(QUuid id, const EntityItemProperties&
                     // we make a bid for simulation ownership
                     properties.setSimulationOwner(myNodeID, SCRIPT_POKE_SIMULATION_PRIORITY);
                     entity->pokeSimulationOwnership();
+                    entity->rememberHasSimulationOwnershipBid();
                 }
             }
             if (properties.parentRelatedPropertyChanged() && entity->computePuffedQueryAACube()) {
@@ -668,6 +672,38 @@ RayToEntityIntersectionResult EntityScriptingInterface::findRayIntersectionWorke
         }
     }
     return result;
+}
+
+bool EntityScriptingInterface::reloadServerScripts(QUuid entityID) {
+    auto client = DependencyManager::get<EntityScriptClient>();
+    return client->reloadServerScript(entityID);
+}
+
+bool EntityScriptingInterface::getServerScriptStatus(QUuid entityID, QScriptValue callback) {
+    auto client = DependencyManager::get<EntityScriptClient>();
+    auto request = client->createScriptStatusRequest(entityID);
+    connect(request, &GetScriptStatusRequest::finished, callback.engine(), [callback](GetScriptStatusRequest* request) mutable {
+        QString statusString;
+        switch (request->getStatus()) {
+            case RUNNING:
+                statusString = "running";
+                break;
+            case ERROR_LOADING_SCRIPT:
+                statusString = "error_loading_script";
+                break;
+            case ERROR_RUNNING_SCRIPT:
+                statusString = "error_running_script";
+                break;
+            default:
+                statusString = "";
+                break;
+        }
+        QScriptValueList args { request->getResponseReceived(), request->getIsRunning(), statusString, request->getErrorInfo() };
+        callback.call(QScriptValue(), args);
+        request->deleteLater();
+    });
+    request->start();
+    return true;
 }
 
 void EntityScriptingInterface::setLightsArePickable(bool value) {
@@ -1333,14 +1369,16 @@ bool EntityScriptingInterface::isChildOfParent(QUuid childID, QUuid parentID) {
 
     _entityTree->withReadLock([&] {
         EntityItemPointer parent = _entityTree->findEntityByEntityItemID(parentID);
-        parent->forEachDescendant([&](SpatiallyNestablePointer descendant) {
-            if(descendant->getID() == childID) {
-                isChild = true;
-                return; 
-            }
-        });
+        if (parent) {
+            parent->forEachDescendant([&](SpatiallyNestablePointer descendant) {
+                if (descendant->getID() == childID) {
+                    isChild = true;
+                    return;
+                }
+            });
+        }
     });
-    
+
     return isChild;
 }
 
@@ -1364,7 +1402,8 @@ QVector<QUuid> EntityScriptingInterface::getChildrenIDsOfJoint(const QUuid& pare
             return;
         }
         parent->forEachChild([&](SpatiallyNestablePointer child) {
-            if (child->getParentJointIndex() == jointIndex) {
+            if (child->getParentJointIndex() == jointIndex &&
+                child->getNestableType() != NestableType::Overlay) {
                 result.push_back(child->getID());
             }
         });
@@ -1459,3 +1498,12 @@ void EntityScriptingInterface::setCostMultiplier(float value) {
     costMultiplier = value;
 }
 
+QObject* EntityScriptingInterface::getWebViewRoot(const QUuid& entityID) {
+    if (auto entity = checkForTreeEntityAndTypeMatch(entityID, EntityTypes::Web)) {
+        auto webEntity = std::dynamic_pointer_cast<WebEntityItem>(entity);
+        QObject* root = webEntity->getRootItem();
+        return root;
+    } else {
+        return nullptr;
+    }
+}

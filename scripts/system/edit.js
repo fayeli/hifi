@@ -170,8 +170,9 @@ var toolBar = (function () {
     var EDIT_SETTING = "io.highfidelity.isEditting"; // for communication with other scripts
     var that = {},
         toolBar,
-        systemToolbar,
-        activeButton;
+        activeButton = null,
+        systemToolbar = null,
+        tablet = null;
 
     function createNewEntity(properties) {
         Settings.setValue(EDIT_SETTING, false);
@@ -196,7 +197,12 @@ var toolBar = (function () {
 
     function cleanup() {
         that.setActive(false);
-        systemToolbar.removeButton(EDIT_TOGGLE_BUTTON);
+        if (tablet) {
+            tablet.removeButton(activeButton);
+        }
+        if (systemToolbar) {
+            systemToolbar.removeButton(EDIT_TOGGLE_BUTTON);
+        }
     }
 
     function addButton(name, image, handler) {
@@ -230,16 +236,24 @@ var toolBar = (function () {
             }
         });
 
-        systemToolbar = Toolbars.getToolbar(SYSTEM_TOOLBAR);
-        activeButton = systemToolbar.addButton({
-            objectName: EDIT_TOGGLE_BUTTON,
-            imageURL: TOOLS_PATH + "edit.svg",
-            visible: true,
-            alpha: 0.9,
-            buttonState: 1,
-            hoverState: 3,
-            defaultState: 1
-        });
+
+        if (Settings.getValue("HUDUIEnabled")) {
+            systemToolbar = Toolbars.getToolbar(SYSTEM_TOOLBAR);
+            activeButton = systemToolbar.addButton({
+                objectName: EDIT_TOGGLE_BUTTON,
+                imageURL: TOOLS_PATH + "edit.svg",
+                visible: true,
+                alpha: 0.9,
+                defaultState: 1
+            });
+        } else {
+            tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
+            activeButton = tablet.addButton({
+                icon: "icons/tablet-icons/edit-i.svg",
+                text: "EDIT"
+            });
+        }
+
         activeButton.clicked.connect(function() {
             that.toggle();
         });
@@ -439,9 +453,7 @@ var toolBar = (function () {
 
     that.toggle = function () {
         that.setActive(!isActive);
-        activeButton.writeProperty("buttonState", isActive ? 0 : 1);
-        activeButton.writeProperty("defaultState", isActive ? 0 : 1);
-        activeButton.writeProperty("hoverState", isActive ? 2 : 3);
+        activeButton.editProperties({isActive: isActive});
     };
 
     that.setActive = function (active) {
@@ -483,7 +495,6 @@ var toolBar = (function () {
             toolBar.writeProperty("shown", false);
             toolBar.writeProperty("shown", true);
         }
-        // toolBar.selectTool(activeButton, isActive);
         lightOverlayManager.setVisible(isActive && Menu.isOptionChecked(MENU_SHOW_LIGHTS_IN_EDIT_MODE));
         Entities.setDrawZoneBoundaries(isActive && Menu.isOptionChecked(MENU_SHOW_ZONES_IN_EDIT_MODE));
     };
@@ -703,7 +714,9 @@ function mouseClickEvent(event) {
         toolBar.setActive(true);
         var pickRay = result.pickRay;
         var foundEntity = result.entityID;
-
+        if (foundEntity === HMD.tabletID) {
+            return;
+        }
         properties = Entities.getEntityProperties(foundEntity);
         if (isLocked(properties)) {
             if (wantDebug) {
@@ -1387,6 +1400,35 @@ function pushCommandForSelections(createdEntityData, deletedEntityData) {
 
 var ENTITY_PROPERTIES_URL = Script.resolvePath('html/entityProperties.html');
 
+var ServerScriptStatusMonitor = function(entityID, statusCallback) {
+    var self = this;
+
+    self.entityID = entityID;
+    self.active = true;
+    self.sendRequestTimerID = null;
+
+    var onStatusReceived = function(success, isRunning, status, errorInfo) {
+        if (self.active) {
+            statusCallback({
+                statusRetrieved: success,
+                isRunning: isRunning,
+                status: status,
+                errorInfo: errorInfo
+            });
+            self.sendRequestTimerID = Script.setTimeout(function() {
+                if (self.active) {
+                    Entities.getServerScriptStatus(entityID, onStatusReceived);
+                }
+            }, 1000);
+        };
+    };
+    self.stop = function() {
+        self.active = false;
+    }
+
+    Entities.getServerScriptStatus(entityID, onStatusReceived);
+};
+
 var PropertiesTool = function (opts) {
     var that = {};
 
@@ -1398,6 +1440,11 @@ var PropertiesTool = function (opts) {
 
     var visible = false;
 
+    // This keeps track of the last entity ID that was selected. If multiple entities
+    // are selected or if no entity is selected this will be `null`.
+    var currentSelectedEntityID = null;
+    var statusMonitor = null;
+
     webView.setVisible(visible);
 
     that.setVisible = function (newVisible) {
@@ -1405,10 +1452,44 @@ var PropertiesTool = function (opts) {
         webView.setVisible(visible);
     };
 
-    selectionManager.addEventListener(function () {
+    function updateScriptStatus(info) {
+        info.type = "server_script_status";
+        webView.emitScriptEvent(JSON.stringify(info));
+    };
+
+    function resetScriptStatus() {
+        updateScriptStatus({
+            statusRetrieved: false,
+            isRunning: false,
+            status: "",
+            errorInfo: ""
+        });
+    }
+
+    selectionManager.addEventListener(function (selectionUpdated) {
         var data = {
             type: 'update'
         };
+
+        if (selectionUpdated) {
+            resetScriptStatus();
+
+            if (selectionManager.selections.length !== 1) {
+                if (statusMonitor !== null) {
+                    statusMonitor.stop();
+                    statusMonitor = null;
+                }
+                currentSelectedEntityID = null;
+            } else if (currentSelectedEntityID != selectionManager.selections[0]) {
+                if (statusMonitor !== null) {
+                    statusMonitor.stop();
+                }
+                var entityID = selectionManager.selections[0];
+                currentSelectedEntityID = entityID;
+                statusMonitor = new ServerScriptStatusMonitor(entityID, updateScriptStatus);
+            }
+        }
+
         var selections = [];
         for (var i = 0; i < selectionManager.selections.length; i++) {
             var entity = {};
@@ -1568,13 +1649,19 @@ var PropertiesTool = function (opts) {
                     pushCommandForSelections();
                     selectionManager._update();
                 }
-            } else if (data.action === "reloadScript") {
+            } else if (data.action === "reloadClientScripts") {
                 if (selectionManager.hasSelection()) {
                     var timestamp = Date.now();
                     for (i = 0; i < selectionManager.selections.length; i++) {
                         Entities.editEntity(selectionManager.selections[i], {
                             scriptTimestamp: timestamp
                         });
+                    }
+                }
+            } else if (data.action === "reloadServerScripts") {
+                if (selectionManager.hasSelection()) {
+                    for (i = 0; i < selectionManager.selections.length; i++) {
+                        Entities.reloadServerScripts(selectionManager.selections[i]);
                     }
                 }
             }
