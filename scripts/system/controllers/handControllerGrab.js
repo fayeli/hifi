@@ -26,6 +26,7 @@ Script.include("/~/system/libraries/controllers.js");
 //
 // add lines where the hand ray picking is happening
 //
+
 var WANT_DEBUG = false;
 var WANT_DEBUG_STATE = false;
 var WANT_DEBUG_SEARCH_NAME = null;
@@ -53,6 +54,13 @@ var HAPTIC_TEXTURE_DISTANCE = 0.002;
 var HAPTIC_DEQUIP_STRENGTH = 0.75;
 var HAPTIC_DEQUIP_DURATION = 50.0;
 
+// triggered when stylus presses a web overlay/entity
+var HAPTIC_STYLUS_STRENGTH = 1.0;
+var HAPTIC_STYLUS_DURATION = 20.0;
+
+// triggerd when ui laser presses a web overlay/entity
+var HAPTIC_LASER_UI_STRENGTH = 1.0;
+var HAPTIC_LASER_UI_DURATION = 20.0;
 
 var HAND_HEAD_MIX_RATIO = 0.0; //  0 = only use hands for search/move.  1 = only use head for search/move.
 
@@ -122,7 +130,6 @@ var GRAB_POINT_SPHERE_RADIUS = NEAR_GRAB_RADIUS;
 var GRAB_POINT_SPHERE_COLOR = { red: 240, green: 240, blue: 240 };
 var GRAB_POINT_SPHERE_ALPHA = 0.85;
 
-
 //
 // other constants
 //
@@ -143,6 +150,7 @@ var ONE_VEC = {
 };
 
 var NULL_UUID = "{00000000-0000-0000-0000-000000000000}";
+var AVATAR_SELF_ID = "{00000000-0000-0000-0000-000000000001}";
 
 var DEFAULT_REGISTRATION_POINT = { x: 0.5, y: 0.5, z: 0.5 };
 var INCHES_TO_METERS = 1.0 / 39.3701;
@@ -745,6 +753,7 @@ function MyController(hand) {
     this.previouslyUnhooked = {};
 
     this.shouldScale = false;
+    this.isScalingAvatar = false;
 
     // handPosition is where the avatar's hand appears to be, in-world.
     this.getHandPosition = function () {
@@ -817,11 +826,7 @@ function MyController(hand) {
 
     this.update = function(deltaTime, timestamp) {
         this.updateSmoothedTrigger();
-        //  If both trigger and grip buttons squeezed and nothing is held, rescale my avatar!
-        if (this.hand === RIGHT_HAND && this.state === STATE_SEARCHING &&
-            this.getOtherHandController().state === STATE_SEARCHING) {
-            this.maybeScaleMyAvatar();
-        }
+        this.maybeScaleMyAvatar();
 
         if (this.ignoreInput()) {
 
@@ -895,9 +900,7 @@ function MyController(hand) {
         if (!SHOW_GRAB_POINT_SPHERE) {
             return;
         }
-        if (!MyAvatar.sessionUUID) {
-            return;
-        }
+
         if (!this.grabPointSphere) {
             this.grabPointSphere = Overlays.addOverlay("sphere", {
                 localPosition: getGrabPointSphereOffset(this.handToController()),
@@ -909,7 +912,7 @@ function MyController(hand) {
                 visible: true,
                 ignoreRayIntersection: true,
                 drawInFront: false,
-                parentID: MyAvatar.sessionUUID,
+                parentID: AVATAR_SELF_ID,
                 parentJointIndex: MyAvatar.getJointIndex(this.hand === RIGHT_HAND ?
                                                          "_CONTROLLER_RIGHTHAND" :
                                                          "_CONTROLLER_LEFTHAND")
@@ -961,9 +964,6 @@ function MyController(hand) {
         if (this.stylus) {
             return;
         }
-        if (!MyAvatar.sessionUUID) {
-            return;
-        }
 
         var stylusProperties = {
             url: Script.resourcesPath() + "meshes/tablet-stylus-fat.fbx",
@@ -977,7 +977,7 @@ function MyController(hand) {
             visible: true,
             ignoreRayIntersection: true,
             drawInFront: false,
-            parentID: MyAvatar.sessionUUID,
+            parentID: AVATAR_SELF_ID,
             parentJointIndex: MyAvatar.getJointIndex(this.hand === RIGHT_HAND ?
                                                      "_CAMERA_RELATIVE_CONTROLLER_RIGHTHAND" :
                                                      "_CAMERA_RELATIVE_CONTROLLER_LEFTHAND")
@@ -1252,7 +1252,7 @@ function MyController(hand) {
             if (homeButton === hmdHomeButton) {
                 if (this.homeButtonTouched === false) {
                     this.homeButtonTouched = true;
-                    Controller.triggerHapticPulse(1, 20, this.hand);
+                    Controller.triggerHapticPulse(HAPTIC_STYLUS_STRENGTH, HAPTIC_STYLUS_DURATION, this.hand);
                     Messages.sendLocalMessage("home", homeButton);
                 }
             } else {
@@ -1270,7 +1270,7 @@ function MyController(hand) {
             if (homeButton === hmdHomeButton) {
                 if (this.homeButtonTouched === false) {
                     this.homeButtonTouched = true;
-                    Controller.triggerHapticPulse(1, 20, this.hand);
+                    Controller.triggerHapticPulse(HAPTIC_LASER_UI_STRENGTH, HAPTIC_LASER_UI_DURATION, this.hand);
                     Messages.sendLocalMessage("home", homeButton);
                 }
             } else {
@@ -1758,7 +1758,6 @@ function MyController(hand) {
                 Entities.sendHoverOverEntity(entity, pointerEvent);
             }
 
-
             this.grabbedEntity = entity;
             this.setState(STATE_ENTITY_STYLUS_TOUCHING, "begin touching entity '" + name + "'");
             return true;
@@ -1779,11 +1778,6 @@ function MyController(hand) {
         var pointerEvent;
         if (rayPickInfo.overlayID) {
             var overlay = rayPickInfo.overlayID;
-
-            if (!this.homeButtonTouched) {
-                Controller.triggerHapticPulse(1, 20, this.hand);
-            }
-
             if (Overlays.keyboardFocusOverlay != overlay) {
                 Entities.keyboardFocusEntity = null;
                 Overlays.keyboardFocusOverlay = overlay;
@@ -2341,7 +2335,7 @@ function MyController(hand) {
             }
 
             var reparentProps = {
-                parentID: MyAvatar.sessionUUID,
+                parentID: AVATAR_SELF_ID,
                 parentJointIndex: handJointIndex,
                 velocity: {x: 0, y: 0, z: 0},
                 angularVelocity: {x: 0, y: 0, z: 0}
@@ -2478,7 +2472,7 @@ function MyController(hand) {
         if (this.state == STATE_HOLD && now - this.lastUnequipCheckTime > MSECS_PER_SEC * CHECK_TOO_FAR_UNEQUIP_TIME) {
             this.lastUnequipCheckTime = now;
 
-            if (props.parentID == MyAvatar.sessionUUID) {
+            if (props.parentID == AVATAR_SELF_ID) {
                 var handPosition;
                 if (this.ignoreIK) {
                     handPosition = getControllerWorldLocation(this.handToController(), false).position;
@@ -2572,7 +2566,7 @@ function MyController(hand) {
     };
 
     this.maybeScale = function(props) {
-        if (!objectScalingEnabled) {
+        if (!objectScalingEnabled || this.isTablet(this.grabbedEntity)) {
             return;
         }
 
@@ -2599,22 +2593,29 @@ function MyController(hand) {
     };
 
     this.maybeScaleMyAvatar = function() {
-        if (!myAvatarScalingEnabled) {
+        if (!myAvatarScalingEnabled || this.shouldScale || this.hand === LEFT_HAND) {
+            //  If scaling disabled, or if we are currently scaling an entity, don't scale avatar
+            //  and only rescale avatar for one hand (so we're not doing it twice)
             return;
         }
 
-        if (!this.shouldScale) {
+        // Only scale avatar if both triggers and grips are squeezed
+        var tryingToScale = this.secondarySqueezed() && this.getOtherHandController().secondarySqueezed() &&
+                            this.triggerSmoothedSqueezed() && this.getOtherHandController().triggerSmoothedSqueezed();
+
+
+        if (!this.isScalingAvatar) {
             //  If both secondary triggers squeezed, start scaling
-            if (this.secondarySqueezed() && this.getOtherHandController().secondarySqueezed()) {
+            if (tryingToScale) {
                 this.scalingStartDistance = Vec3.length(Vec3.subtract(this.getHandPosition(),
                                                                       this.getOtherHandController().getHandPosition()));
                 this.scalingStartAvatarScale = MyAvatar.scale;
-                this.shouldScale = true;
+                this.isScalingAvatar = true;
             }
-        } else if (!this.secondarySqueezed() || !this.getOtherHandController().secondarySqueezed()) {
-            this.shouldScale = false;
+        } else if (!tryingToScale) {
+            this.isScalingAvatar = false;
         }
-        if (this.shouldScale) {
+        if (this.isScalingAvatar) {
             var scalingCurrentDistance = Vec3.length(Vec3.subtract(this.getHandPosition(),
                                                                    this.getOtherHandController().getHandPosition()));
             var newAvatarScale = (scalingCurrentDistance / this.scalingStartDistance) * this.scalingStartAvatarScale;
@@ -2713,6 +2714,12 @@ function MyController(hand) {
             var STYLUS_PRESS_TO_MOVE_DEADSPOT_ANGLE = 0.314; // radians ~ 18 degrees
             var theta = this.state === STATE_ENTITY_STYLUS_TOUCHING ? STYLUS_PRESS_TO_MOVE_DEADSPOT_ANGLE : LASER_PRESS_TO_MOVE_DEADSPOT_ANGLE;
             this.deadspotRadius = Math.tan(theta) * intersectInfo.distance;  // dead spot radius in meters
+        }
+
+        if (this.state == STATE_ENTITY_STYLUS_TOUCHING) {
+            Controller.triggerHapticPulse(HAPTIC_STYLUS_STRENGTH, HAPTIC_STYLUS_DURATION, this.hand);
+        } else if (this.state == STATE_ENTITY_LASER_TOUCHING) {
+            Controller.triggerHapticPulse(HAPTIC_LASER_UI_STRENGTH, HAPTIC_LASER_UI_DURATION, this.hand);
         }
     };
 
@@ -2833,6 +2840,12 @@ function MyController(hand) {
             var theta = this.state === STATE_OVERLAY_STYLUS_TOUCHING ? STYLUS_PRESS_TO_MOVE_DEADSPOT_ANGLE : LASER_PRESS_TO_MOVE_DEADSPOT_ANGLE;
             this.deadspotRadius = Math.tan(theta) * intersectInfo.distance;  // dead spot radius in meters
         }
+
+        if (this.state == STATE_OVERLAY_STYLUS_TOUCHING) {
+            Controller.triggerHapticPulse(HAPTIC_STYLUS_STRENGTH, HAPTIC_STYLUS_DURATION, this.hand);
+        } else if (this.state == STATE_OVERLAY_LASER_TOUCHING) {
+            Controller.triggerHapticPulse(HAPTIC_LASER_UI_STRENGTH, HAPTIC_LASER_UI_DURATION, this.hand);
+        }
     };
 
     this.overlayTouchingExit = function () {
@@ -2886,7 +2899,6 @@ function MyController(hand) {
         this.touchingEnterTimer += dt;
 
         if (this.state == STATE_OVERLAY_STYLUS_TOUCHING && this.triggerSmoothedSqueezed()) {
-            this.setState(STATE_OFF, "trigger squeezed");
             return;
         }
 
@@ -2911,7 +2923,7 @@ function MyController(hand) {
             var pos3D = intersectInfo.point;
 
             if (this.state == STATE_OVERLAY_STYLUS_TOUCHING &&
-                !this.deadspotExpired &&
+                !this.tabletStabbed &&
                 intersectInfo.distance < WEB_STYLUS_LENGTH / 2.0 + WEB_TOUCH_TOO_CLOSE) {
                 // they've stabbed the tablet, don't send events until they pull back
                 this.tabletStabbed = true;
@@ -2919,8 +2931,15 @@ function MyController(hand) {
                 this.tabletStabbedPos3D = pos3D;
                 return;
             }
+
             if (this.tabletStabbed) {
-                return;
+                var origin = {x: this.tabletStabbedPos2D.x, y: this.tabletStabbedPos2D.y, z: 0};
+                var point = {x: pos2D.x, y: pos2D.y, z: 0};
+                var offset = Vec3.distance(origin, point);
+                var radius = 0.05;
+                if (offset < radius) {
+                    return;
+                }
             }
 
             if (Overlays.keyboardFocusOverlay != this.grabbedOverlay) {
@@ -3012,7 +3031,7 @@ function MyController(hand) {
     };
 
     this.thisHandIsParent = function(props) {
-        if (props.parentID != MyAvatar.sessionUUID) {
+        if (props.parentID !== MyAvatar.sessionUUID && props.parentID !== AVATAR_SELF_ID) {
             return false;
         }
 
@@ -3046,16 +3065,21 @@ function MyController(hand) {
         // find children of avatar's hand joint
         var handJointIndex = MyAvatar.getJointIndex(this.hand === RIGHT_HAND ? "RightHand" : "LeftHand");
         var children = Entities.getChildrenIDsOfJoint(MyAvatar.sessionUUID, handJointIndex);
+        children = children.concat(Entities.getChildrenIDsOfJoint(AVATAR_SELF_ID, handJointIndex));
+
         // find children of faux controller joint
         var controllerJointIndex = MyAvatar.getJointIndex(this.hand === RIGHT_HAND ?
                                                           "_CONTROLLER_RIGHTHAND" :
                                                           "_CONTROLLER_LEFTHAND");
         children = children.concat(Entities.getChildrenIDsOfJoint(MyAvatar.sessionUUID, controllerJointIndex));
+        children = children.concat(Entities.getChildrenIDsOfJoint(AVATAR_SELF_ID, controllerJointIndex));
+
         // find children of faux camera-relative controller joint
         var controllerCRJointIndex = MyAvatar.getJointIndex(this.hand === RIGHT_HAND ?
                                                             "_CAMERA_RELATIVE_CONTROLLER_RIGHTHAND" :
                                                             "_CAMERA_RELATIVE_CONTROLLER_LEFTHAND");
         children = children.concat(Entities.getChildrenIDsOfJoint(MyAvatar.sessionUUID, controllerCRJointIndex));
+        children = children.concat(Entities.getChildrenIDsOfJoint(AVATAR_SELF_ID, controllerCRJointIndex));
 
         children.forEach(function(childID) {
             if (childID !== _this.stylus) {

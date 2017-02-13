@@ -62,6 +62,7 @@
 #include "scripting/DialogsManagerScriptingInterface.h"
 #include "ui/ApplicationOverlay.h"
 #include "ui/BandwidthDialog.h"
+#include "ui/EntityScriptServerLogDialog.h"
 #include "ui/LodToolsDialog.h"
 #include "ui/LogDialog.h"
 #include "ui/OctreeStatsDialog.h"
@@ -208,6 +209,11 @@ public:
     float getFieldOfView() { return _fieldOfView.get(); }
     void setFieldOfView(float fov);
 
+    float getHMDTabletScale() { return _hmdTabletScale.get(); }
+    void setHMDTabletScale(float hmdTabletScale);
+    float getDesktopTabletScale() { return _desktopTabletScale.get(); }
+    void setDesktopTabletScale(float desktopTabletScale);
+
     float getSettingConstrainToolbarPosition() { return _constrainToolbarPosition.get(); }
     void setSettingConstrainToolbarPosition(bool setting);
 
@@ -309,6 +315,7 @@ public slots:
     Q_INVOKABLE void loadDialog();
     Q_INVOKABLE void loadScriptURLDialog() const;
     void toggleLogDialog();
+    void toggleEntityScriptServerLogDialog();
     void toggleRunningScriptsWidget() const;
     Q_INVOKABLE void showAssetServerWidget(QString filePath = "");
 
@@ -539,6 +546,8 @@ private:
 
     Setting::Handle<QString> _previousScriptLocation;
     Setting::Handle<float> _fieldOfView;
+    Setting::Handle<float> _hmdTabletScale;
+    Setting::Handle<float> _desktopTabletScale;
     Setting::Handle<bool> _constrainToolbarPosition;
 
     float _scaleMirror;
@@ -559,6 +568,7 @@ private:
     NodeToOctreeSceneStats _octreeServerSceneStats;
     ControllerScriptingInterface* _controllerScriptingInterface{ nullptr };
     QPointer<LogDialog> _logDialog;
+    QPointer<EntityScriptServerLogDialog> _entityScriptServerLogDialog;
 
     FileLogger* _logger;
 

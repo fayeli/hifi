@@ -27,6 +27,7 @@
 #include <SharedUtil.h>
 #include <StDev.h>
 #include <UUID.h>
+#include <CPUDetect.h>
 
 #include "AudioHelpers.h"
 #include "AudioRingBuffer.h"
@@ -316,6 +317,10 @@ void AudioMixer::sendStatsPacket() {
     addTiming(_mixTiming, "mix");
     addTiming(_eventsTiming, "events");
 
+#ifdef HIFI_AUDIO_THROTTLE_DEBUG
+    timingStats["ns_per_throttle"] = (_stats.totalMixes > 0) ?  (float)(_stats.throttleTime / _stats.totalMixes) : 0;
+#endif
+
     // call it "avg_..." to keep it higher in the display, sorted alphabetically
     statsObject["avg_timing_stats"] = timingStats;
 
@@ -532,6 +537,8 @@ int AudioMixer::prepareFrame(const SharedNodePointer& node, unsigned int frame) 
 }
 
 void AudioMixer::parseSettingsObject(const QJsonObject &settingsObject) {
+    qDebug() << "AVX2 Support:" << (cpuSupportsAVX2() ? "enabled" : "disabled");
+
     if (settingsObject.contains(AUDIO_THREADING_GROUP_KEY)) {
         QJsonObject audioThreadingGroupObject = settingsObject[AUDIO_THREADING_GROUP_KEY].toObject();
         const QString AUTO_THREADS = "auto_threads";

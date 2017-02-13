@@ -18,8 +18,19 @@ Item {
         loader.item.scriptURL = injectedJavaScriptUrl;
     }
 
+    // used to send a message from qml to interface script.
+    signal sendToScript(var message);
+
+    // used to receive messages from interface script
+    function fromScript(message) {
+        if (loader.item.hasOwnProperty("fromScript")) {
+            loader.item.fromScript(message);
+        }
+    }
+
     SoundEffect {
         id: buttonClickSound
+        volume: 0.1
         source: "../../../sounds/Gamemaster-Audio-button-click.wav"
     }
 
@@ -53,6 +64,9 @@ Item {
                         ApplicationInterface.addAssetToWorldFromURL(event.slice(18));
                     }
                 });
+            }
+            if (loader.item.hasOwnProperty("sendToScript")) {
+                loader.item.sendToScript.connect(tabletRoot.sendToScript);
             }
             loader.item.forceActiveFocus();
         }

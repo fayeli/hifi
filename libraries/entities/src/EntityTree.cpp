@@ -104,6 +104,7 @@ bool EntityTree::handlesEditPacketType(PacketType packetType) const {
         case PacketType::EntityAdd:
         case PacketType::EntityEdit:
         case PacketType::EntityErase:
+        case PacketType::EntityPhysics:
             return true;
         default:
             return false;
@@ -931,10 +932,15 @@ void EntityTree::initEntityEditFilterEngine(QScriptEngine* engine, std::function
         qCDebug(entities) << "Filter function specified but not found. Will reject all edits.";
         _entityEditFilterEngine = nullptr; // So that we don't try to call it. See filterProperties.
     }
+    auto entitiesObject = _entityEditFilterEngine->newObject();
+    entitiesObject.setProperty("ADD_FILTER_TYPE", FilterType::Add);
+    entitiesObject.setProperty("EDIT_FILTER_TYPE", FilterType::Edit);
+    entitiesObject.setProperty("PHYSICS_FILTER_TYPE", FilterType::Physics);
+    global.setProperty("Entities", entitiesObject);
     _hasEntityEditFilter = true;
 }
 
-bool EntityTree::filterProperties(EntityItemProperties& propertiesIn, EntityItemProperties& propertiesOut, bool& wasChanged) {
+bool EntityTree::filterProperties(EntityItemProperties& propertiesIn, EntityItemProperties& propertiesOut, bool& wasChanged, FilterType filterType) {
     if (!_entityEditFilterEngine) {
         propertiesOut = propertiesIn;
         wasChanged = false; // not changed
@@ -953,6 +959,7 @@ bool EntityTree::filterProperties(EntityItemProperties& propertiesIn, EntityItem
     auto in = QJsonValue::fromVariant(inputValues.toVariant()); // grab json copy now, because the inputValues might be side effected by the filter.
     QScriptValueList args;
     args << inputValues;
+    args << filterType;
 
     QScriptValue result = _entityEditFilterFunction.call(_nullObjectForFilter, args);
     if (_entityEditFilterHadUncaughtExceptions()) {
@@ -989,6 +996,7 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
     }
 
     int processedBytes = 0;
+    bool isAdd = false;
     // we handle these types of "edit" packets
     switch (message.getType()) {
         case PacketType::EntityErase: {
@@ -998,6 +1006,8 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
         }
 
         case PacketType::EntityAdd:
+            isAdd = true;  // fall through to next case
+        case PacketType::EntityPhysics:
         case PacketType::EntityEdit: {
             quint64 startDecode = 0, endDecode = 0;
             quint64 startLookup = 0, endLookup = 0;
@@ -1007,6 +1017,7 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
             quint64 startLogging = 0, endLogging = 0;
 
             bool suppressDisallowedScript = false;
+            bool isPhysics = message.getType() == PacketType::EntityPhysics;
 
             _totalEditMessages++;
 
@@ -1017,6 +1028,7 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
             bool validEditPacket = EntityItemProperties::decodeEntityEditPacket(editData, maxLength, processedBytes,
                                                                                 entityItemID, properties);
             endDecode = usecTimestampNow();
+
 
             if (validEditPacket && !_entityScriptSourceWhitelist.isEmpty() && !properties.getScript().isEmpty()) {
                 bool passedWhiteList = false;
@@ -1040,7 +1052,7 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
                     }
 
                     // If this was an add, we also want to tell the client that sent this edit that the entity was not added.
-                    if (message.getType() == PacketType::EntityAdd) {
+                    if (isAdd) {
                         QWriteLocker locker(&_recentlyDeletedEntitiesLock);
                         _recentlyDeletedEntityItemIDs.insert(usecTimestampNow(), entityItemID);
                         validEditPacket = passedWhiteList;
@@ -1050,8 +1062,7 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
                 }
             }
 
-            if ((message.getType() == PacketType::EntityAdd ||
-                 (message.getType() == PacketType::EntityEdit && properties.lifetimeChanged())) &&
+            if ((isAdd || properties.lifetimeChanged()) &&
                 !senderNode->getCanRez() && senderNode->getCanRezTmp()) {
                 // this node is only allowed to rez temporary entities.  if need be, cap the lifetime.
                 if (properties.getLifetime() == ENTITY_ITEM_IMMORTAL_LIFETIME ||
@@ -1067,10 +1078,13 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
 
                 startFilter = usecTimestampNow();
                 bool wasChanged = false;
-                // Having (un)lock rights bypasses the filter.
-                bool allowed = senderNode->isAllowedEditor() || filterProperties(properties, properties, wasChanged);
+                // Having (un)lock rights bypasses the filter, unless it's a physics result.
+                FilterType filterType = isPhysics ? FilterType::Physics : (isAdd ? FilterType::Add : FilterType::Edit);
+                bool allowed = (!isPhysics && senderNode->isAllowedEditor()) || filterProperties(properties, properties, wasChanged, filterType);
                 if (!allowed) {
+                    auto timestamp = properties.getLastEdited();
                     properties = EntityItemProperties();
+                    properties.setLastEdited(timestamp);
                 }
                 if (!allowed || wasChanged) {
                     bumpTimestamp(properties);
@@ -1083,7 +1097,7 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
                 startLookup = usecTimestampNow();
                 EntityItemPointer existingEntity = findEntityByEntityItemID(entityItemID);
                 endLookup = usecTimestampNow();
-                if (existingEntity && message.getType() == PacketType::EntityEdit) {
+                if (existingEntity && !isAdd) {
 
                     if (suppressDisallowedScript) {
                         bumpTimestamp(properties);
@@ -1110,7 +1124,7 @@ int EntityTree::processEditPacketData(ReceivedMessage& message, const unsigned c
                     existingEntity->markAsChangedOnServer();
                     endUpdate = usecTimestampNow();
                     _totalUpdates++;
-                } else if (message.getType() == PacketType::EntityAdd) {
+                } else if (isAdd) {
                     bool failedAdd = !allowed;
                     if (!allowed) {
                         qCDebug(entities) << "Filtered entity add. ID:" << entityItemID;
