@@ -42,30 +42,6 @@
     setupMenu();
     Menu.menuItemEvent.connect(handleMenuEvent);
 
-    function ThumbPad(hand) {
-        this.hand = hand;
-        var _thisPad = this;
-        this.buttonPress = function(value) {
-            _thisPad.buttonValue = value;
-        };
-        this.down = function() {
-            var down = _thisPad.buttonValue === 1 ? 1.0 : 0.0;
-            return down;
-        };
-    }
-
-    function Trigger(hand) {
-        this.hand = hand;
-        var _this = this;
-        this.buttonPress = function(value) {
-            _this.buttonValue = value;
-        };
-        this.down = function() {
-            var down = _this.buttonValue === 1 ? 1.0 : 0.0;
-            return down;
-        };
-    }
-
     function GroupTeleporter() {
         var _this = this;
         this.updateConnected = false;
@@ -206,11 +182,6 @@
         };
     }
 
-    var leftPad = new ThumbPad('left');
-    var rightPad = new ThumbPad('right');
-    var leftTrigger = new Trigger('left');
-    var rightTrigger = new Trigger('right');
-
     var mappingName, teleportMapping;
 
     function registerMappings() {
@@ -229,29 +200,6 @@
                 teleporter.enterGroupTeleportMode();
             }
         });
-
-        teleportMapping.from(Controller.Standard.RT).peek().to(rightTrigger.buttonPress);
-        teleportMapping.from(Controller.Standard.LT).peek().to(leftTrigger.buttonPress);
-        teleportMapping.from(Controller.Standard.RightPrimaryThumb).peek().to(rightPad.buttonPress);
-        teleportMapping.from(Controller.Standard.LeftPrimaryThumb).peek().to(leftPad.buttonPress);
-        teleportMapping.from(rightPad.down).when(leftPad.down)
-            .to(function(value) {
-                if (value===0) {
-                    return;
-                }
-                if (rightTrigger.down()) {
-                    return;
-                }
-                if (leftTrigger.down()) {
-                    return;
-                }
-                print('Group Teleport Debug: Clicked both thumbpad');
-                if (inGroupTeleportMode) {
-                    teleporter.exitGroupTeleportMode();
-                } else {
-                    teleporter.enterGroupTeleportMode();
-                }
-            });
     }
 
     var teleporter = new GroupTeleporter();
