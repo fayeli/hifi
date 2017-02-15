@@ -18,6 +18,12 @@
     var RING_URL = "http://hifi-content.s3.amazonaws.com/alan/dev/GT--Ring.fbx";
     var inGroupTeleportMode = false;
 
+    var tablet = Tablet.getTablet("com.highfidelity.interface.tablet.system");
+    var button = tablet.addButton({
+        icon: "icons/tablet-icons/users-i.svg",
+        text: "GTP"
+    });
+
     function setupMenu() {
         print("Group Teleport set up Menu");
         Menu.addMenuItem({
@@ -206,8 +212,24 @@
     registerMappings();
     Controller.enableMapping(mappingName);
 
+    function onClicked() {
+        if (inGroupTeleportMode) {
+            teleporter.exitGroupTeleportMode();
+        } else {
+            teleporter.enterGroupTeleportMode();
+        }
+        button.editProperties({isActive: inGroupTeleportMode});
+    }
+
+    button.clicked.connect(onClicked);
+
     function cleanupMenu() {
         Menu.removeMenuItem("Settings", "Customize Group Teleport");
+    }
+
+    function cleanupTablet() {
+        button.clicked.disconnect(onClicked);
+        tablet.removeButton(button);
     }
 
     function cleanup() {
@@ -218,6 +240,7 @@
             teleporter.updateConnected = false;
         }
         cleanupMenu();
+        cleanupTablet();
     }
 
     Script.scriptEnding.connect(cleanup);
