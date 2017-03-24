@@ -103,7 +103,7 @@ Item {
                     root.shown = false;
                 }
                 anchors {
-                    left: parent.left
+                    left: addressLine.left
                     verticalCenter: parent.verticalCenter
                 }
             }
@@ -134,9 +134,9 @@ Item {
             anchors {
                 top: navBar.bottom
                 right: parent.right
-                rightMargin: 16
+                rightMargin: 20
                 left: parent.left
-                leftMargin: 16
+                leftMargin: 20
             }
 
             property int inputAreaHeight: 70
