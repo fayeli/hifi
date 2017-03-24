@@ -107,11 +107,11 @@ Item {
                     }
                     StatText {
                         visible: root.expanded
-                        text: "Fully Simulated Avatars: " + root.fullySimulatedAvatarCount
+                        text: "Avatars Updated: " + root.updatedAvatarCount
                     }
                     StatText {
                         visible: root.expanded
-                        text: "Partially Simulated Avatars: " + root.partiallySimulatedAvatarCount
+                        text: "Avatars NOT Updated: " + root.notUpdatedAvatarCount
                     }
                 }
             }
@@ -180,6 +180,31 @@ Item {
                         text: "Avatar Mixer Out: " + root.avatarMixerOutKbps + " kbps, " +
                             root.avatarMixerOutPps + "pps, " +
                             root.myAvatarSendRate.toFixed(2) + "hz";
+                    }
+                    StatText {
+                        visible: root.expanded;
+                        text: "Audio Mixer In: " + root.audioMixerInKbps + " kbps, " +
+                            root.audioMixerInPps + "pps";
+                    }
+                    StatText {
+                        visible: root.expanded;
+                        text: "Audio In Audio: " + root.audioAudioInboundPPS + " pps, " +
+                            "Silent: " + root.audioSilentInboundPPS + " pps";
+                    }
+                    StatText {
+                        visible: root.expanded;
+                        text: "Audio Mixer Out: " + root.audioMixerOutKbps + " kbps, " +
+                            root.audioMixerOutPps + "pps";
+                    }
+                    StatText {
+                        visible: root.expanded;
+                        text: "Audio Out Mic: " + root.audioMicOutboundPPS + " pps, " +
+                            "Silent: " + root.audioSilentOutboundPPS + " pps";
+                    }
+                    StatText {
+                        visible: root.expanded;
+                        text: "Audio Codec: " + root.audioCodec + " Noise Gate: " +
+                            root.audioNoiseGate;
                     }
                     StatText {
                         visible: root.expanded;
